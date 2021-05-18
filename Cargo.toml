@@ -4,6 +4,7 @@ version = "1.0.0"
 authors = ["IGI-111 <igi-111@protonmail.com>"]
 edition = "2018"
 description = "BK-tree datastructure"
+repository = "https://github.com/IGI-111/bktree"
 license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
