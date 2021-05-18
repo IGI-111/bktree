@@ -1,3 +1,5 @@
+#![feature(test)]
+
 //! A crate implementing a Brukhard Keller tree datastructure which allows for fast querying of
 //! "close" matches on discrete distances.
 //!
@@ -27,6 +29,7 @@
 /// Typical distance functions to use with the BK-tree
 pub mod distance;
 
+extern crate test;
 pub use distance::*;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -219,5 +222,69 @@ mod tests {
         assert_eq!(iter_res, [&0, &15, &14, &5, &4]);
         let intoiter_res: Vec<i32> = bk.into_iter().collect();
         assert_eq!(intoiter_res, [0, 15, 14, 5, 4]);
+    }
+    use rand::{thread_rng, Rng};
+    use test::Bencher;
+
+    fn make_words<R: Rng>(rng: &mut R, n: i32) -> Vec<String> {
+        let mut words: Vec<String> = Vec::new();
+        for _ in 1..n {
+            let l = rng.gen_range(4, 12);
+            let s: String = rng.gen_ascii_chars().take(l).collect();
+            words.push(s);
+        }
+        words
+    }
+
+    #[bench]
+    fn bench_find_exact(b: &mut Bencher) {
+        let mut tree: BkTree<String> = BkTree::new(levenshtein_distance);
+        let words = make_words(&mut thread_rng(), 1000);
+        let word = words.last().unwrap().clone();
+        tree.insert_all(words);
+
+        b.iter(|| tree.find(word.clone(), 0));
+    }
+
+    #[bench]
+    fn bench_find_tol_one(b: &mut Bencher) {
+        let mut tree: BkTree<String> = BkTree::new(levenshtein_distance);
+        let words = make_words(&mut thread_rng(), 1000);
+        let word = words.last().unwrap().clone();
+        tree.insert_all(words);
+
+        b.iter(|| tree.find(word.clone(), 1));
+    }
+
+    #[bench]
+    fn bench_find_tol_two(b: &mut Bencher) {
+        let mut tree: BkTree<String> = BkTree::new(levenshtein_distance);
+        let words = make_words(&mut thread_rng(), 1000);
+        let word = words.last().unwrap().clone();
+        tree.insert_all(words);
+
+        b.iter(|| tree.find(word.clone(), 2));
+    }
+
+    #[bench]
+    fn bench_add(b: &mut Bencher) {
+        let words = make_words(&mut thread_rng(), 1000);
+
+        b.iter(move || {
+            let mut tree: BkTree<String> = BkTree::new(levenshtein_distance);
+            for word in words.clone() {
+                tree.insert(word);
+            }
+        });
+    }
+
+    #[bench]
+    fn bench_extend(b: &mut Bencher) {
+        let words = make_words(&mut thread_rng(), 1000);
+
+        b.iter(move || {
+            let mut tree: BkTree<String> = BkTree::new(levenshtein_distance);
+            tree.insert_all(words.clone());
+        });
     }
 }
