@@ -1,5 +1,7 @@
 # bktree
 
+[![Crates.io](https://img.shields.io/crates/v/bktree.svg)](https://crates.io/crates/bktree)
+
 A crate implementing a Brukhard Keller tree datastructure which allows for fast querying of
 "close" matches on discrete distances.
 
