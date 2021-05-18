@@ -1,59 +1,33 @@
-pub fn hamming_distance<T>(a: &T, b: &T) -> isize
-where
-    T: num::PrimInt,
-{
-    (*a ^ *b).count_ones() as isize
-}
+//! A crate implementing a Brukhard Keller tree datastructure which allows for fast querying of
+//! "close" matches on discrete distances.
+//!
+//! ```rust
+//! use bktree::*;
+//!
+//! let mut bk = BkTree::new(hamming_distance);
+//! bk.insert_all(vec![0, 4, 5, 14, 15]);
+//!
+//! let (words, dists): (Vec<i32>, Vec<isize>) = bk.find(13, 1).into_iter().unzip();
+//! assert_eq!(words, [5, 15]);
+//! assert_eq!(dists, [1, 1]);
+//! ```
+//!
+//! ```rust
+//! use bktree::*;
+//!
+//! let mut bk = BkTree::new(levenshtein_distance);
+//! bk.insert_all(vec![
+//!     "book", "books", "boo", "boon", "cook", "cake", "cape", "cart",
+//! ]);
+//! let (words, dists): (Vec<&str>, Vec<isize>) = bk.find("bo", 2).into_iter().unzip();
+//! assert_eq!(words, ["book", "boo", "boon"]);
+//! assert_eq!(dists, [2, 1, 2]);
+//! ```
 
-pub fn levenshtein_distance<S: AsRef<str>>(a: &S, b: &S) -> isize {
-    let a = a.as_ref();
-    let b = b.as_ref();
+/// Typical distance functions to use with the BK-tree
+pub mod distance;
 
-    if a == b {
-        return 0;
-    }
-
-    let a_len = a.chars().count();
-    let b_len = b.chars().count();
-
-    if a_len == 0 {
-        return b_len as isize;
-    }
-
-    if b_len == 0 {
-        return a_len as isize;
-    }
-
-    let mut res = 0;
-    let mut cache: Vec<usize> = (1..).take(a_len).collect();
-    let mut a_dist;
-    let mut b_dist;
-
-    for (ib, cb) in b.chars().enumerate() {
-        res = ib;
-        a_dist = ib;
-        for (ia, ca) in a.chars().enumerate() {
-            b_dist = if ca == cb { a_dist } else { a_dist + 1 };
-            a_dist = cache[ia];
-
-            res = if a_dist > res {
-                if b_dist > res {
-                    res + 1
-                } else {
-                    b_dist
-                }
-            } else if b_dist > a_dist {
-                a_dist + 1
-            } else {
-                b_dist
-            };
-
-            cache[ia] = res;
-        }
-    }
-
-    res as isize
-}
+pub use distance::*;
 
 #[derive(Debug, Eq, PartialEq)]
 struct Node<T> {
@@ -61,12 +35,15 @@ struct Node<T> {
     children: Vec<(isize, Node<T>)>,
 }
 
+/// A BK-tree datastructure
+///
 pub struct BkTree<T> {
     root: Option<Box<Node<T>>>,
     dist: Box<dyn Fn(&T, &T) -> isize>,
 }
 
 impl<T> BkTree<T> {
+    /// Create a new BK-tree with a given distance function
     pub fn new(dist: impl Fn(&T, &T) -> isize + 'static) -> Self {
         Self {
             root: None,
@@ -74,12 +51,14 @@ impl<T> BkTree<T> {
         }
     }
 
+    /// Insert every element from a given iterator in the BK-tree
     pub fn insert_all<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         for i in iter {
             self.insert(i);
         }
     }
 
+    /// Insert a new element in the BK-tree
     pub fn insert(&mut self, val: T) {
         match self.root {
             None => {
@@ -118,6 +97,9 @@ impl<T> BkTree<T> {
         }
     }
 
+    /// Find the closest elements to a given value present in the BK-tree
+    ///
+    /// Returns pairs of element references and distances
     pub fn find(&self, val: T, max_dist: isize) -> Vec<(&T, isize)> {
         match self.root {
             None => Vec::new(),
@@ -146,6 +128,7 @@ impl<T> BkTree<T> {
         }
     }
 
+    /// Convert the BK-tree into an iterator over its elements, in no particular order
     pub fn into_iter(self) -> IntoIter<T> {
         let mut queue = Vec::new();
         if let Some(root) = self.root {
@@ -153,6 +136,7 @@ impl<T> BkTree<T> {
         }
         IntoIter { queue }
     }
+    /// Create an iterator over references of BK-tree elements, in no particular order
     pub fn iter(&self) -> Iter<T> {
         let mut queue = Vec::new();
         if let Some(ref root) = self.root {
@@ -171,6 +155,7 @@ impl<T> IntoIterator for BkTree<T> {
     }
 }
 
+/// Iterator over BK-tree elements
 pub struct IntoIter<T> {
     queue: Vec<Node<T>>,
 }
@@ -185,6 +170,7 @@ impl<T> Iterator for IntoIter<T> {
     }
 }
 
+/// Iterator over BK-tree elements, by reference
 pub struct Iter<'a, T> {
     queue: Vec<&'a Node<T>>,
 }
@@ -199,34 +185,39 @@ impl<'a, T> Iterator for Iter<'a, T> {
     }
 }
 
-#[test]
-fn levenshtein_distance_test() {
-    let mut bk = BkTree::new(levenshtein_distance);
-    bk.insert_all(vec![
-        "book", "books", "boo", "boon", "cook", "cake", "cape", "cart",
-    ]);
-    let (words, dists): (Vec<&str>, Vec<isize>) = bk.find("bo", 2).into_iter().unzip();
-    assert_eq!(words, ["book", "boo", "boon"]);
-    assert_eq!(dists, [2, 1, 2]);
-}
+#[cfg(test)]
+mod tests {
+    use crate::distance::*;
+    use crate::BkTree;
+    #[test]
+    fn levenshtein_distance_test() {
+        let mut bk = BkTree::new(levenshtein_distance);
+        bk.insert_all(vec![
+            "book", "books", "boo", "boon", "cook", "cake", "cape", "cart",
+        ]);
+        let (words, dists): (Vec<&str>, Vec<isize>) = bk.find("bo", 2).into_iter().unzip();
+        assert_eq!(words, ["book", "boo", "boon"]);
+        assert_eq!(dists, [2, 1, 2]);
+    }
 
-#[test]
-fn hamming_distance_test() {
-    let mut bk = BkTree::new(hamming_distance);
-    bk.insert_all(vec![0, 4, 5, 14, 15]);
+    #[test]
+    fn hamming_distance_test() {
+        let mut bk = BkTree::new(hamming_distance);
+        bk.insert_all(vec![0, 4, 5, 14, 15]);
 
-    let (words, dists): (Vec<i32>, Vec<isize>) = bk.find(13, 1).into_iter().unzip();
-    assert_eq!(words, [5, 15]);
-    assert_eq!(dists, [1, 1]);
-}
+        let (words, dists): (Vec<i32>, Vec<isize>) = bk.find(13, 1).into_iter().unzip();
+        assert_eq!(words, [5, 15]);
+        assert_eq!(dists, [1, 1]);
+    }
 
-#[test]
-fn iterators_test() {
-    let mut bk = BkTree::new(hamming_distance);
-    bk.insert_all(vec![0, 4, 5, 14, 15]);
+    #[test]
+    fn iterators_test() {
+        let mut bk = BkTree::new(hamming_distance);
+        bk.insert_all(vec![0, 4, 5, 14, 15]);
 
-    let iter_res: Vec<&i32> = bk.iter().collect();
-    assert_eq!(iter_res, [&0, &15, &14, &5, &4]);
-    let intoiter_res: Vec<i32> = bk.into_iter().collect();
-    assert_eq!(intoiter_res, [0, 15, 14, 5, 4]);
+        let iter_res: Vec<&i32> = bk.iter().collect();
+        assert_eq!(iter_res, [&0, &15, &14, &5, &4]);
+        let intoiter_res: Vec<i32> = bk.into_iter().collect();
+        assert_eq!(intoiter_res, [0, 15, 14, 5, 4]);
+    }
 }
