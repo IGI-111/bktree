@@ -238,20 +238,6 @@ mod tests {
         assert_eq!(intoiter_res, [0, 15, 14, 5, 4]);
     }
 
-    fn assert_eq_sorted<'t, T: 't, I>(left: I, right: &[(u32, T)])
-    where
-        T: Ord + Debug,
-        I: Iterator<Item = (u32, &'t T)>,
-    {
-        let mut left_mut: Vec<_> = left.collect();
-        let mut right_mut: Vec<_> = right.iter().map(|&(dist, ref key)| (dist, key)).collect();
-
-        left_mut.sort();
-        right_mut.sort();
-
-        assert_eq!(left_mut, right_mut);
-    }
-
     #[cfg(feature = "serde-support")]
     #[test]
     fn test_serialization() {
