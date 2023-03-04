@@ -259,48 +259,48 @@ mod tests {
         let words = vec![
             "book", "books", "boo", "boon", "cook", "cake", "cape", "cart",
         ];
-        bk.insert_all(words);
+        bk.insert_all(words.clone());
 
         // Test exact search (zero tolerance)
-        for word in words {
+        for word in &words {
             let (wordList, distList): (Vec<&str>, Vec<isize>) =
                 bk.find(word, 0).into_iter().unzip();
-            assert_eq!(wordList, [word]);
-            assert_eq!(distList, [0]);
+            assert_eq!(wordList, vec![*word]);
+            assert_eq!(distList, vec![0]);
         }
 
         // Test fuzzy search
         let (wordList, distList): (Vec<&str>, Vec<isize>) = bk.find("ca", 3).into_iter().unzip();
-        assert_eq!(wordList, ["pickle", "rick"]);
-        assert_eq!(distList, [3, 153]);
+        assert_eq!(wordList, vec!["cake", "boo", "cape", "cart", "cook"]);
+        assert_eq!(distList, vec![2, 3, 2, 2, 3]);
 
         // Test for false positives
         let (wordList, distList): (Vec<&str>, Vec<isize>) =
             bk.find("not here", 0).into_iter().unzip();
-        assert_eq!(wordList, []);
-        assert_eq!(distList, []);
+        assert_eq!(wordList, vec![""; 0]);
+        assert_eq!(distList, vec![0; 0]);
 
         let encoded_bk: Vec<u8> = bincode::serialize(&bk).unwrap();
         let decoded_bk: BkTree<&str> = bincode::deserialize(&encoded_bk[..]).unwrap();
 
         // Test exact search (zero tolerance)
-        for word in words {
+        for word in &words {
             let (wordList, distList): (Vec<&str>, Vec<isize>) =
                 decoded_bk.find(word, 0).into_iter().unzip();
-            assert_eq!(wordList, [word]);
-            assert_eq!(distList, [0]);
+            assert_eq!(wordList, vec![*word]);
+            assert_eq!(distList, vec![0]);
         }
 
         // Test fuzzy search
         let (wordList, distList): (Vec<&str>, Vec<isize>) =
             decoded_bk.find("ca", 3).into_iter().unzip();
-        assert_eq!(wordList, ["pickle", "rick"]);
-        assert_eq!(distList, [3, 153]);
+        assert_eq!(wordList, vec!["cake", "boo", "cape", "cart", "cook"]);
+        assert_eq!(distList, vec![2, 3, 2, 2, 3]);
 
         // Test for false positives
         let (wordList, distList): (Vec<&str>, Vec<isize>) =
             decoded_bk.find("not here", 0).into_iter().unzip();
-        assert_eq!(wordList, []);
-        assert_eq!(distList, []);
+        assert_eq!(wordList, vec![""; 0]);
+        assert_eq!(distList, vec![0; 0]);
     }
 }

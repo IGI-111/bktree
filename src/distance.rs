@@ -2,9 +2,17 @@ pub trait Distance<T: ?Sized> {
     fn distance(&self, a: &T, b: &T) -> isize;
 }
 
+#[cfg_attr(
+    feature = "serde-support",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 #[derive(Debug)]
 pub struct HammingDistance;
 
+#[cfg_attr(
+    feature = "serde-support",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 #[derive(Debug)]
 pub struct LevenshteinDistance;
 
