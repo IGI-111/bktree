@@ -127,15 +127,6 @@ impl<T> BkTree<T> {
             }
         }
     }
-
-    /// Convert the BK-tree into an iterator over its elements, in no particular order
-    pub fn into_iter(self) -> IntoIter<T> {
-        let mut queue = Vec::new();
-        if let Some(root) = self.root {
-            queue.push(*root);
-        }
-        IntoIter { queue }
-    }
     /// Create an iterator over references of BK-tree elements, in no particular order
     pub fn iter(&self) -> Iter<T> {
         let mut queue = Vec::new();
@@ -151,7 +142,11 @@ impl<T> IntoIterator for BkTree<T> {
     type IntoIter = IntoIter<T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.into_iter()
+        let mut queue = Vec::new();
+        if let Some(root) = self.root {
+            queue.push(*root);
+        }
+        IntoIter { queue }
     }
 }
 
