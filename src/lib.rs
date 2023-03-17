@@ -59,7 +59,7 @@ where
 {
     /// Create a new BK-tree with a given distance function
     pub fn new(dist: D) -> BkTree<T, D> {
-        BkTree {
+        Self {
             root: None,
             dist,
         }
