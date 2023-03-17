@@ -61,7 +61,7 @@ where
     pub fn new(dist: D) -> BkTree<T, D> {
         BkTree {
             root: None,
-            dist: dist,
+            dist,
         }
     }
 
