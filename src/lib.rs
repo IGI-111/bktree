@@ -158,7 +158,7 @@ impl<T, D> IntoIterator for BkTree<T, D> {
     fn into_iter(self) -> Self::IntoIter {
         let mut queue = Vec::new();
         if let Some(root) = self.root {
-            queue.push(*root);
+            queue.push(root);
         }
         IntoIter { queue }
     }
