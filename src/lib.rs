@@ -58,7 +58,7 @@ where
     D: Distance<T>,
 {
     /// Create a new BK-tree with a given distance function
-    pub fn new(dist: D) -> BkTree<T, D> {
+    pub fn new(dist: D) -> Self {
         Self {
             root: None,
             dist,
