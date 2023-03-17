@@ -59,10 +59,7 @@ where
 {
     /// Create a new BK-tree with a given distance function
     pub fn new(dist: D) -> Self {
-        Self {
-            root: None,
-            dist,
-        }
+        Self { root: None, dist }
     }
 
     /// Insert every element from a given iterator in the BK-tree
