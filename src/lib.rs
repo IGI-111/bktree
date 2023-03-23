@@ -197,7 +197,6 @@ mod tests {
 
     use crate::distance::*;
     use crate::BkTree;
-    use std::fmt::Debug;
     #[test]
     fn levenshtein_distance_test() {
         let mut bk = BkTree::new(LevenshteinDistance);
