@@ -4,7 +4,7 @@
 //! ```rust
 //! use bktree::*;
 //!
-//! let mut bk = BkTree::new(hamming_distance);
+//! let mut bk = BkTree::new(HammingDistance);
 //! bk.insert_all(vec![0, 4, 5, 14, 15]);
 //!
 //! let (words, dists): (Vec<i32>, Vec<isize>) = bk.find(13, 1).into_iter().unzip();
@@ -15,7 +15,7 @@
 //! ```rust
 //! use bktree::*;
 //!
-//! let mut bk = BkTree::new(levenshtein_distance);
+//! let mut bk = BkTree::new(LevenshteinDistance);
 //! bk.insert_all(vec![
 //!     "book", "books", "boo", "boon", "cook", "cake", "cape", "cart",
 //! ]);
@@ -29,7 +29,14 @@ pub mod distance;
 
 pub use distance::*;
 
+#[cfg(feature = "serde-support")]
+extern crate serde;
+
 #[derive(Debug, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "serde-support",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 struct Node<T> {
     word: T,
     children: Vec<(isize, Node<T>)>,
@@ -37,18 +44,22 @@ struct Node<T> {
 
 /// A BK-tree datastructure
 ///
-pub struct BkTree<T> {
-    root: Option<Box<Node<T>>>,
-    dist: Box<dyn Fn(&T, &T) -> isize>,
+#[cfg_attr(
+    feature = "serde-support",
+    derive(serde::Serialize, serde::Deserialize)
+)]
+pub struct BkTree<T, D = distance::LevenshteinDistance> {
+    root: Option<Node<T>>,
+    dist: D,
 }
 
-impl<T> BkTree<T> {
+impl<T, D> BkTree<T, D>
+where
+    D: Distance<T>,
+{
     /// Create a new BK-tree with a given distance function
-    pub fn new(dist: impl Fn(&T, &T) -> isize + 'static) -> Self {
-        Self {
-            root: None,
-            dist: Box::new(dist),
-        }
+    pub fn new(dist: D) -> Self {
+        Self { root: None, dist }
     }
 
     /// Insert every element from a given iterator in the BK-tree
@@ -62,15 +73,15 @@ impl<T> BkTree<T> {
     pub fn insert(&mut self, val: T) {
         match self.root {
             None => {
-                self.root = Some(Box::new(Node {
+                self.root = Some(Node {
                     word: val,
                     children: Vec::new(),
-                }))
+                })
             }
             Some(ref mut root_node) => {
-                let mut u = &mut **root_node;
+                let mut u = root_node;
                 loop {
-                    let k = (self.dist)(&u.word, &val);
+                    let k = self.dist.distance(&u.word, &val);
                     if k == 0 {
                         return;
                     }
@@ -111,7 +122,7 @@ impl<T> BkTree<T> {
                 candidates.push_back(root);
 
                 while let Some(n) = candidates.pop_front() {
-                    let distance = (self.dist)(&n.word, &val);
+                    let distance = self.dist.distance(&n.word, &val);
                     if distance <= max_dist {
                         found.push((&n.word, distance));
                     }
@@ -131,20 +142,20 @@ impl<T> BkTree<T> {
     pub fn iter(&self) -> Iter<T> {
         let mut queue = Vec::new();
         if let Some(ref root) = self.root {
-            queue.push(&**root);
+            queue.push(root);
         }
         Iter { queue }
     }
 }
 
-impl<T> IntoIterator for BkTree<T> {
+impl<T, D> IntoIterator for BkTree<T, D> {
     type Item = T;
     type IntoIter = IntoIter<T>;
 
     fn into_iter(self) -> Self::IntoIter {
         let mut queue = Vec::new();
         if let Some(root) = self.root {
-            queue.push(*root);
+            queue.push(root);
         }
         IntoIter { queue }
     }
@@ -182,11 +193,13 @@ impl<'a, T> Iterator for Iter<'a, T> {
 
 #[cfg(test)]
 mod tests {
+    extern crate bincode;
+
     use crate::distance::*;
     use crate::BkTree;
     #[test]
     fn levenshtein_distance_test() {
-        let mut bk = BkTree::new(levenshtein_distance);
+        let mut bk = BkTree::new(LevenshteinDistance);
         bk.insert_all(vec![
             "book", "books", "boo", "boon", "cook", "cake", "cape", "cart",
         ]);
@@ -197,7 +210,7 @@ mod tests {
 
     #[test]
     fn hamming_distance_test() {
-        let mut bk = BkTree::new(hamming_distance);
+        let mut bk = BkTree::new(HammingDistance);
         bk.insert_all(vec![0, 4, 5, 14, 15]);
 
         let (words, dists): (Vec<i32>, Vec<isize>) = bk.find(13, 1).into_iter().unzip();
@@ -207,12 +220,64 @@ mod tests {
 
     #[test]
     fn iterators_test() {
-        let mut bk = BkTree::new(hamming_distance);
+        let mut bk = BkTree::new(HammingDistance);
         bk.insert_all(vec![0, 4, 5, 14, 15]);
 
         let iter_res: Vec<&i32> = bk.iter().collect();
         assert_eq!(iter_res, [&0, &15, &14, &5, &4]);
         let intoiter_res: Vec<i32> = bk.into_iter().collect();
         assert_eq!(intoiter_res, [0, 15, 14, 5, 4]);
+    }
+
+    #[cfg(feature = "serde-support")]
+    #[test]
+    fn test_serialization() {
+        let mut bk: BkTree<&str> = BkTree::new(LevenshteinDistance);
+        let words = vec![
+            "book", "books", "boo", "boon", "cook", "cake", "cape", "cart",
+        ];
+        bk.insert_all(words.clone());
+
+        // Test exact search (zero tolerance)
+        for word in &words {
+            let (word_list, dist_list): (Vec<&str>, Vec<isize>) =
+                bk.find(word, 0).into_iter().unzip();
+            assert_eq!(word_list, vec![*word]);
+            assert_eq!(dist_list, vec![0]);
+        }
+
+        // Test fuzzy search
+        let (word_list, dist_list): (Vec<&str>, Vec<isize>) = bk.find("ca", 3).into_iter().unzip();
+        assert_eq!(word_list, vec!["cake", "boo", "cape", "cart", "cook"]);
+        assert_eq!(dist_list, vec![2, 3, 2, 2, 3]);
+
+        // Test for false positives
+        let (word_list, dist_list): (Vec<&str>, Vec<isize>) =
+            bk.find("not here", 0).into_iter().unzip();
+        assert_eq!(word_list, vec![""; 0]);
+        assert_eq!(dist_list, vec![0; 0]);
+
+        let encoded_bk: Vec<u8> = bincode::serialize(&bk).unwrap();
+        let decoded_bk: BkTree<&str> = bincode::deserialize(&encoded_bk[..]).unwrap();
+
+        // Test exact search (zero tolerance)
+        for word in &words {
+            let (word_list, dist_list): (Vec<&str>, Vec<isize>) =
+                decoded_bk.find(word, 0).into_iter().unzip();
+            assert_eq!(word_list, vec![*word]);
+            assert_eq!(dist_list, vec![0]);
+        }
+
+        // Test fuzzy search
+        let (word_list, dist_list): (Vec<&str>, Vec<isize>) =
+            decoded_bk.find("ca", 3).into_iter().unzip();
+        assert_eq!(word_list, vec!["cake", "boo", "cape", "cart", "cook"]);
+        assert_eq!(dist_list, vec![2, 3, 2, 2, 3]);
+
+        // Test for false positives
+        let (word_list, dist_list): (Vec<&str>, Vec<isize>) =
+            decoded_bk.find("not here", 0).into_iter().unzip();
+        assert_eq!(word_list, vec![""; 0]);
+        assert_eq!(dist_list, vec![0; 0]);
     }
 }
